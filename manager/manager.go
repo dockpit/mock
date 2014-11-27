@@ -2,6 +2,8 @@ package manager
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -49,12 +51,31 @@ func NewManager(host, cert string) (*Manager, error) {
 	return m, nil
 }
 
+// hash a path using md5
+func containerName(path string) (string, error) {
+
+	//create md5 of full path
+	hash := md5.New()
+	_, err := hash.Write([]byte(path))
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("pitmock_%s", hex.EncodeToString(hash.Sum(nil))), nil
+}
+
 // start a mock container by using examples from the given directory
 func (m *Manager) Start(dir string) (*MockContainer, error) {
 
+	//create name for container
+	cname, err := containerName(dir)
+	if err != nil {
+		return nil, err
+	}
+
 	//create the container
 	c, err := m.client.CreateContainer(docker.CreateContainerOptions{
-		// Name: fmt.Sprintf("pitmock_%s", filepath.Base(dep)),
+		Name:   cname,
 		Config: &docker.Config{Image: ImageName},
 	})
 
@@ -68,13 +89,6 @@ func (m *Manager) Start(dir string) (*MockContainer, error) {
 		return nil, err
 	}
 
-	//tar examples into memory
-	tar := bytes.NewBuffer(nil)
-	err = dirtar.Tar(dir, tar)
-	if err != nil {
-		return nil, err
-	}
-
 	//get container port mapping
 	ci, err := m.client.InspectContainer(c.ID)
 	if err != nil {
@@ -83,6 +97,13 @@ func (m *Manager) Start(dir string) (*MockContainer, error) {
 
 	//use docker host location to form url
 	hurl, err := url.Parse(m.host)
+	if err != nil {
+		return nil, err
+	}
+
+	//tar examples into memory
+	tar := bytes.NewBuffer(nil)
+	err = dirtar.Tar(dir, tar)
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +146,34 @@ func (m *Manager) Start(dir string) (*MockContainer, error) {
 
 // stop a mock container that was started from the given directory
 func (m *Manager) Stop(dir string) error {
-	//@todo implement
-	return fmt.Errorf("Not yet implemented")
+
+	//create name for container
+	cname, err := containerName(dir)
+	if err != nil {
+		return err
+	}
+
+	//get all containers
+	cs, err := m.client.ListContainers(docker.ListContainersOptions{})
+	if err != nil {
+		return err
+	}
+
+	//get container that matches the name
+	// var container *docker.APIContainers
+	var container docker.APIContainers
+	for _, c := range cs {
+		for _, n := range c.Names {
+			if n[1:] == cname {
+				container = c
+			}
+		}
+	}
+
+	//remove hard since mocks are ephemeral
+	return m.client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:            container.ID,
+		RemoveVolumes: true,
+		Force:         true,
+	})
 }

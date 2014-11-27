@@ -41,7 +41,8 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mc, err := m.Start(filepath.Join(wd, "..", ".dockpit", "examples"))
+	path := filepath.Join(wd, "..", ".dockpit", "examples")
+	mc, err := m.Start(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,4 +53,13 @@ func TestStart(t *testing.T) {
 	}
 
 	assert.Equal(t, 200, resp.StatusCode)
+
+	err = m.Stop(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//this should fail since the container is now down
+	resp, err = http.Get(fmt.Sprintf("%s/users", mc.Endpoint))
+	assert.NotEqual(t, nil, err)
 }
