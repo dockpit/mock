@@ -10,6 +10,10 @@ import (
 	"github.com/dockpit/mock/server"
 )
 
+var Version = "0.0.0-DEV"
+var Build = "unbuild"
+var Bind = ":8000"
+
 func main() {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -17,7 +21,7 @@ func main() {
 	}
 
 	//create the server
-	s := server.NewServer(":8000", filepath.Join(wd, ".dockpit", "examples"))
+	s := server.NewServer(Bind, filepath.Join(wd, ".dockpit", "examples"))
 
 	//send relevant signals to server
 	signal.Notify(s.Reload, syscall.SIGHUP)
@@ -30,7 +34,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("Serving...\n")
+	log.Printf("Dockpit Mock %s (%s), serving on (%s)...\n", Version, Build, Bind)
 	err = s.Serve()
 	if err != nil {
 		log.Fatal("after serve:", err)
