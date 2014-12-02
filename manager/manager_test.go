@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bmizerany/assert"
+	"github.com/fsouza/go-dockerclient"
 
 	"github.com/dockpit/mock/manager"
 )
@@ -41,11 +43,18 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	//creat protbinding
+	portb := map[docker.Port][]docker.PortBinding{
+		docker.Port("8000/tcp"): []docker.PortBinding{docker.PortBinding{HostPort: "11000"}},
+	}
+
 	path := filepath.Join(wd, "..", ".dockpit", "examples")
-	mc, err := m.Start(path)
+	mc, err := m.Start(path, portb)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	assert.Equal(t, true, strings.HasSuffix(mc.Endpoint, ":11000"), "mocked service should have port configured endpoint")
 
 	resp, err := http.Get(fmt.Sprintf("%s/users", mc.Endpoint))
 	if err != nil {

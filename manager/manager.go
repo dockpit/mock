@@ -65,7 +65,7 @@ func containerName(path string) (string, error) {
 }
 
 // start a mock container by using examples from the given directory
-func (m *Manager) Start(dir string) (*MockContainer, error) {
+func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) (*MockContainer, error) {
 
 	//create name for container
 	cname, err := containerName(dir)
@@ -75,8 +75,10 @@ func (m *Manager) Start(dir string) (*MockContainer, error) {
 
 	//create the container
 	c, err := m.client.CreateContainer(docker.CreateContainerOptions{
-		Name:   cname,
-		Config: &docker.Config{Image: ImageName},
+		Name: cname,
+		Config: &docker.Config{
+			Image: ImageName,
+		},
 	})
 
 	if err != nil {
@@ -84,7 +86,7 @@ func (m *Manager) Start(dir string) (*MockContainer, error) {
 	}
 
 	//start the container we created
-	err = m.client.StartContainer(c.ID, &docker.HostConfig{PublishAllPorts: true})
+	err = m.client.StartContainer(c.ID, &docker.HostConfig{PortBindings: portb})
 	if err != nil {
 		return nil, err
 	}
