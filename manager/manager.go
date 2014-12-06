@@ -127,7 +127,7 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 	//@todo, use the logic on line 77
 	hurl.Scheme = "http"
 	for _, pconfig := range ci.NetworkSettings.PortMappingAPI() {
-		if pconfig.PrivatePort != 0 {
+		if pconfig.PrivatePort == MockPrivatePort {
 			hurl.Host = strings.Replace(hurl.Host, ":2376", fmt.Sprintf(":%d", pconfig.PublicPort), 1)
 		}
 	}
