@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -73,6 +74,13 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 		return nil, err
 	}
 
+	//@todo, grab the first and set private port to expected mock service
+	//to the mock porcess binding
+	for _, pb := range portb {
+		portb[docker.Port(strconv.FormatInt(MockPrivatePort, 10)+"/tcp")] = pb
+		break
+	}
+
 	//create the container
 	c, err := m.client.CreateContainer(docker.CreateContainerOptions{
 		Name: cname,
@@ -115,9 +123,11 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 	<-time.After(time.Millisecond * 200)
 
 	//get the external port for 8000 and turn into an url we can send http requests to
+	//@todo, here we assume that the first configured port is the http interface, indicate explicetly
+	//@todo, use the logic on line 77
 	hurl.Scheme = "http"
 	for _, pconfig := range ci.NetworkSettings.PortMappingAPI() {
-		if pconfig.PrivatePort == MockPrivatePort {
+		if pconfig.PrivatePort != 0 {
 			hurl.Host = strings.Replace(hurl.Host, ":2376", fmt.Sprintf(":%d", pconfig.PublicPort), 1)
 		}
 	}
