@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/fsouza/go-dockerclient"
+	"github.com/dockpit/go-dockerclient"
 
 	"github.com/dockpit/dirtar"
 )
@@ -26,6 +27,8 @@ type Manager struct {
 // the Docker image that is used for mocks
 var ImageName = "dockpit/mock:latest"
 var MockPrivatePort int64 = 8000
+var ReadyExp = regexp.MustCompile(".*serving on.*")
+var ReadyInterval = time.Millisecond * 50
 
 // Manages state for microservice testing by creating
 // docker images and starting containers when necessary
@@ -99,6 +102,8 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 		return nil, err
 	}
 
+	//wait for mock to be ready
+
 	//get container port mapping
 	ci, err := m.client.InspectContainer(c.ID)
 	if err != nil {
@@ -118,9 +123,45 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 		return nil, err
 	}
 
-	//wait for container to settle?
-	//@todo very dirty business here
-	<-time.After(time.Millisecond * 200)
+	//'ping' logs until we got something that indicates
+	// it started
+	to := make(chan bool, 1)
+	go func() {
+		time.Sleep(time.Second * 1)
+		to <- true
+	}()
+
+	//start pinging logs
+	var buf bytes.Buffer
+	for {
+
+		buf.Reset()
+		err = m.client.Logs(docker.LogsOptions{
+			Container:    c.ID,
+			OutputStream: &buf,
+			ErrorStream:  &buf,
+			Stdout:       true,
+			Stderr:       true,
+			RawTerminal:  true,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		//if it matches; break loop we can continue
+		if ReadyExp.MatchString(buf.String()) {
+			break
+		}
+
+		select {
+		case <-to:
+			return nil, fmt.Errorf("Mock server starting timed out")
+			break
+		case <-time.After(ReadyInterval):
+			continue
+		}
+
+	}
 
 	//get the external port for 8000 and turn into an url we can send http requests to
 	//@todo, here we assume that the first configured port is the http interface, indicate explicetly

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/bmizerany/assert"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/dockpit/go-dockerclient"
 
 	"github.com/dockpit/mock/manager"
 )
@@ -49,6 +49,9 @@ func TestStart(t *testing.T) {
 	}
 
 	path := filepath.Join(wd, "..", ".dockpit", "examples")
+
+	m.Stop(path)
+
 	mc, err := m.Start(path, portb)
 	if err != nil {
 		t.Fatal(err)

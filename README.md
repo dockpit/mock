@@ -1,4 +1,4 @@
 mock
 ====
 
-a docker image that can take on the contract of a service
+a docker image that imitate the manifest of another container
