@@ -29,6 +29,7 @@ var ImageName = "dockpit/mock:latest"
 var MockPrivatePort int64 = 8000
 var ReadyExp = regexp.MustCompile(".*serving on.*")
 var ReadyInterval = time.Millisecond * 50
+var ReadyTimeout = time.Second * 1
 
 // Manages state for microservice testing by creating
 // docker images and starting containers when necessary
@@ -127,7 +128,7 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 	// it started
 	to := make(chan bool, 1)
 	go func() {
-		time.Sleep(time.Second * 1)
+		time.Sleep(ReadyTimeout)
 		to <- true
 	}()
 
