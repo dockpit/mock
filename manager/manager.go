@@ -103,8 +103,6 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 		return nil, err
 	}
 
-	//wait for mock to be ready
-
 	//get container port mapping
 	ci, err := m.client.InspectContainer(c.ID)
 	if err != nil {
