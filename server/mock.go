@@ -72,7 +72,7 @@ func (m *Mock) ListRecordings(c web.C, w http.ResponseWriter, r *http.Request) {
 
 	//pattern&method is mandatory for retrieving recording
 	if path == "" || method == "" {
-		http.NotFound(w, r)
+		http.Error(w, "Path or Method query missing", http.StatusNotFound)
 		return
 	}
 
@@ -81,12 +81,12 @@ func (m *Mock) ListRecordings(c web.C, w http.ResponseWriter, r *http.Request) {
 	var ok bool
 
 	if resr, ok = m.Recordings[path]; !ok {
-		http.NotFound(w, r)
+		http.Error(w, fmt.Sprintf("No recordings for path '%s'", path), http.StatusNotFound)
 		return
 	}
 
 	if rec, ok = resr[method]; !ok {
-		http.NotFound(w, r)
+		http.Error(w, fmt.Sprintf("No recordings for method '%s'", method), http.StatusNotFound)
 		return
 	}
 
