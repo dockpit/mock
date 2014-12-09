@@ -67,11 +67,11 @@ func (m *Mock) UploadExamples(c web.C, w http.ResponseWriter, r *http.Request) {
 
 //allows the mock to return current recording through a http response
 func (m *Mock) ListRecordings(c web.C, w http.ResponseWriter, r *http.Request) {
-	pattern := r.URL.Query().Get("pattern")
+	path := r.URL.Query().Get("path")
 	method := r.URL.Query().Get("method")
 
 	//pattern&method is mandatory for retrieving recording
-	if pattern == "" || method == "" {
+	if path == "" || method == "" {
 		http.NotFound(w, r)
 		return
 	}
@@ -80,7 +80,7 @@ func (m *Mock) ListRecordings(c web.C, w http.ResponseWriter, r *http.Request) {
 	var resr map[string]*Recording
 	var ok bool
 
-	if resr, ok = m.Recordings[pattern]; !ok {
+	if resr, ok = m.Recordings[path]; !ok {
 		http.NotFound(w, r)
 		return
 	}
@@ -120,11 +120,6 @@ func (m *Mock) Mux() (*web.Mux, error) {
 		var resr map[string]*Recording
 		var ok bool
 
-		if resr, ok = m.Recordings[r.Pattern()]; !ok {
-			resr = make(map[string]*Recording)
-			m.Recordings[r.Pattern()] = resr
-		}
-
 		//we use the actions to create dynamic middleware
 		acs, err := r.Actions()
 		if err != nil {
@@ -133,6 +128,12 @@ func (m *Mock) Mux() (*web.Mux, error) {
 
 		//create middleware that routes to the correct example
 		fn := func(ctx web.C, w http.ResponseWriter, req *http.Request) {
+
+			// create recordings per path
+			if resr, ok = m.Recordings[req.URL.Path]; !ok {
+				resr = make(map[string]*Recording)
+				m.Recordings[req.URL.Path] = resr
+			}
 
 			//match the request method tot the correct action
 			for _, a := range acs {

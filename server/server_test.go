@@ -40,12 +40,14 @@ func TestServe(t *testing.T) {
 		t.Error(err)
 	}
 
+	//First recording
+
 	//assert
 	assert.Equal(t, 200, resp.StatusCode, fmt.Sprintf("Expected server to return %d, but got %s: %s", 200, resp.Status, string(b)))
 	assert.Equal(t, string(b), "[]")
 
 	//fetch recording
-	recresp, err := http.Get("http://localhost:9000/_recordings?pattern=%2Fusers&method=GET")
+	recresp, err := http.Get("http://localhost:9000/_recordings?path=%2Fusers&method=GET")
 	if err != nil {
 		t.Error(err)
 	}
@@ -59,6 +61,22 @@ func TestServe(t *testing.T) {
 	//assert recording
 	assert.Equal(t, 200, recresp.StatusCode)
 	assert.Equal(t, string(b), "{\"count\":1}\n")
+
+	//Second recording
+	recresp, err = http.Get("http://localhost:9000/_recordings?path=%2Fusers&method=GET")
+	if err != nil {
+		t.Error(err)
+	}
+	defer recresp.Body.Close()
+
+	b, err = ioutil.ReadAll(recresp.Body)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//assert recording, should now be zero as it was reset after fetching
+	assert.Equal(t, 200, recresp.StatusCode)
+	assert.Equal(t, string(b), "{\"count\":0}\n")
 
 }
 
