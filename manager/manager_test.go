@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/bmizerany/assert"
-	"github.com/dockpit/go-dockerclient"
 
 	"github.com/dockpit/mock/manager"
 )
@@ -43,16 +42,13 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//creat protbinding
-	portb := map[docker.Port][]docker.PortBinding{
-		docker.Port("8000/tcp"): []docker.PortBinding{docker.PortBinding{HostPort: "11000"}},
-	}
-
 	path := filepath.Join(wd, "..", ".dockpit", "examples")
 
+	//stop if we still got some mock servers running
 	m.Stop(path)
 
-	mc, err := m.Start(path, portb)
+	// mc, err := m.Start(path, portb)
+	mc, err := m.Start(path, "11000")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +60,7 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	//mocks working?
 	assert.Equal(t, 200, resp.StatusCode)
 
 	err = m.Stop(path)

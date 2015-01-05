@@ -1,34 +1,33 @@
 package manager
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/dockpit/go-dockerclient"
+	"github.com/samalba/dockerclient"
 
 	"github.com/dockpit/dirtar"
 )
 
 type Manager struct {
-	client *docker.Client
+	client *dockerclient.DockerClient
 	host   string
 }
 
 // the Docker image that is used for mocks
 var ImageName = "dockpit/mock:latest"
-var MockPrivatePort int64 = 8000
+var MockPrivatePort string = "8000"
 var ReadyExp = regexp.MustCompile(".*serving on.*")
-var ReadyInterval = time.Millisecond * 50
 var ReadyTimeout = time.Second * 1
 
 // Manages state for microservice testing by creating
@@ -44,11 +43,15 @@ func NewManager(host, cert string) (*Manager, error) {
 		return nil, err
 	}
 
-	//change to http connection
+	//change to https connection
 	hurl.Scheme = "https"
+	var tlsc tls.Config
+	c, err := tls.LoadX509KeyPair(filepath.Join(cert, "cert.pem"), filepath.Join(cert, "key.pem"))
+	tlsc.Certificates = append(tlsc.Certificates, c)
+	tlsc.InsecureSkipVerify = true
 
 	//create docker client
-	m.client, err = docker.NewTLSClient(hurl.String(), filepath.Join(cert, "cert.pem"), filepath.Join(cert, "key.pem"), filepath.Join(cert, "ca.pem"))
+	m.client, err = dockerclient.NewDockerClient(hurl.String(), &tlsc)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +73,11 @@ func containerName(path string) (string, error) {
 }
 
 // start a mock container by using examples from the given directory
-func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) (*MockContainer, error) {
+//  @todo this method makes an awfull lot assumptions about the mocked service
+//  	- only one prot to expose
+//  	- it being http&tcp
+//  	- host is exposed on port 2376
+func (m *Manager) Start(dir string, port string) (*MockContainer, error) {
 
 	//create name for container
 	cname, err := containerName(dir)
@@ -78,35 +85,49 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 		return nil, err
 	}
 
-	//@todo, grab the first and set private port to expected mock service
-	//to the mock porcess binding
-	for _, pb := range portb {
-		portb[docker.Port(strconv.FormatInt(MockPrivatePort, 10)+"/tcp")] = pb
-		break
+	//expose private port to given host port
+	pb := map[string][]dockerclient.PortBinding{}
+	pb[MockPrivatePort+"/tcp"] = []dockerclient.PortBinding{
+		dockerclient.PortBinding{"0.0.0.0", port},
 	}
 
 	//create the container
-	c, err := m.client.CreateContainer(docker.CreateContainerOptions{
-		Name: cname,
-		Config: &docker.Config{
-			Image: ImageName,
-		},
-	})
-
+	id, err := m.client.CreateContainer(&dockerclient.ContainerConfig{Image: ImageName}, cname)
 	if err != nil {
 		return nil, err
 	}
 
-	//start the container we created
-	err = m.client.StartContainer(c.ID, &docker.HostConfig{PortBindings: portb})
+	err = m.client.StartContainer(id, &dockerclient.HostConfig{PortBindings: pb})
 	if err != nil {
 		return nil, err
 	}
 
-	//get container port mapping
-	ci, err := m.client.InspectContainer(c.ID)
+	rc, err := m.client.ContainerLogs(id, &dockerclient.LogOptions{Follow: true, Stdout: true, Stderr: true})
 	if err != nil {
 		return nil, err
+	}
+	defer rc.Close()
+
+	// scan for ready line
+	found := make(chan bool)
+	scanner := bufio.NewScanner(rc)
+	lines := []string{}
+	go func() {
+		for scanner.Scan() {
+			lines = append(lines, scanner.Text())
+
+			//ready yet?
+			if ReadyExp.MatchString(scanner.Text()) {
+				found <- true
+			}
+		}
+	}()
+
+	//wait for timeout or mock being ready
+	select {
+	case <-time.After(ReadyTimeout):
+		return nil, fmt.Errorf("Mock server starting timed out after %s, output: %s", ReadyTimeout, lines)
+	case <-found:
 	}
 
 	//use docker host location to form url
@@ -115,61 +136,15 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 		return nil, err
 	}
 
+	//replace docker port and scheme with the provided port
+	hurl.Scheme = "http"
+	hurl.Host = strings.Replace(hurl.Host, ":2376", fmt.Sprintf(":%s", port), 1)
+
 	//tar examples into memory
 	tar := bytes.NewBuffer(nil)
 	err = dirtar.Tar(dir, tar)
 	if err != nil {
 		return nil, err
-	}
-
-	//'ping' logs until we got something that indicates
-	// it started
-	to := make(chan bool, 1)
-	go func() {
-		time.Sleep(ReadyTimeout)
-		to <- true
-	}()
-
-	//start pinging logs
-	var buf bytes.Buffer
-	for {
-
-		buf.Reset()
-		err = m.client.Logs(docker.LogsOptions{
-			Container:    c.ID,
-			OutputStream: &buf,
-			ErrorStream:  &buf,
-			Stdout:       true,
-			Stderr:       true,
-			RawTerminal:  true,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		//if it matches; break loop we can continue
-		if ReadyExp.MatchString(buf.String()) {
-			break
-		}
-
-		select {
-		case <-to:
-			return nil, fmt.Errorf("Mock server starting timed out")
-			break
-		case <-time.After(ReadyInterval):
-			continue
-		}
-
-	}
-
-	//get the external port for 8000 and turn into an url we can send http requests to
-	//@todo, here we assume that the first configured port is the http interface, indicate explicetly
-	//@todo, use the logic on line 77
-	hurl.Scheme = "http"
-	for _, pconfig := range ci.NetworkSettings.PortMappingAPI() {
-		if pconfig.PrivatePort == MockPrivatePort {
-			hurl.Host = strings.Replace(hurl.Host, ":2376", fmt.Sprintf(":%d", pconfig.PublicPort), 1)
-		}
 	}
 
 	//send the upload request
@@ -180,20 +155,16 @@ func (m *Manager) Start(dir string, portb map[docker.Port][]docker.PortBinding) 
 
 	//check if we uploaded correctly
 	if resp.StatusCode != 201 {
-		return nil, fmt.Errorf("Failed to upload examples to container '%s' %s", ci.ID, ci.Name)
+		return nil, fmt.Errorf("Failed to upload examples to container '%s' %s", id, cname)
 	}
 
-	//send HUP signal to 'root' process (dockpit/mock) to reload examples
-	err = m.client.KillContainer(docker.KillContainerOptions{
-		ID:     c.ID,
-		Signal: docker.Signal(syscall.SIGHUP),
-	})
-
+	// send HUP signal to 'root' process (dockpit/mock) to reload examples
+	err = m.client.KillContainer(id, "SIGHUP")
 	if err != nil {
 		return nil, err
 	}
 
-	return &MockContainer{c.ID, hurl.String(), dir}, nil
+	return &MockContainer{id, hurl.String(), dir}, nil
 }
 
 // stop a mock container that was started from the given directory
@@ -206,14 +177,14 @@ func (m *Manager) Stop(dir string) error {
 	}
 
 	//get all containers
-	cs, err := m.client.ListContainers(docker.ListContainersOptions{})
+	cs, err := m.client.ListContainers(true, false, "")
 	if err != nil {
 		return err
 	}
 
 	//get container that matches the name
 	// var container *docker.APIContainers
-	var container docker.APIContainers
+	var container dockerclient.Container
 	for _, c := range cs {
 		for _, n := range c.Names {
 			if n[1:] == cname {
@@ -222,10 +193,5 @@ func (m *Manager) Stop(dir string) error {
 		}
 	}
 
-	//remove hard since mocks are ephemeral
-	return m.client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            container.ID,
-		RemoveVolumes: true,
-		Force:         true,
-	})
+	return m.client.RemoveContainer(container.Id, true)
 }
