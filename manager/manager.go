@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/md5"
 	"crypto/tls"
@@ -17,6 +16,7 @@ import (
 	"github.com/samalba/dockerclient"
 
 	"github.com/dockpit/dirtar"
+	"github.com/dockpit/iowait"
 )
 
 type Manager struct {
@@ -109,25 +109,9 @@ func (m *Manager) Start(dir string, port string) (*MockContainer, error) {
 	defer rc.Close()
 
 	// scan for ready line
-	found := make(chan bool)
-	scanner := bufio.NewScanner(rc)
-	lines := []string{}
-	go func() {
-		for scanner.Scan() {
-			lines = append(lines, scanner.Text())
-
-			//ready yet?
-			if ReadyExp.MatchString(scanner.Text()) {
-				found <- true
-			}
-		}
-	}()
-
-	//wait for timeout or mock being ready
-	select {
-	case <-time.After(ReadyTimeout):
-		return nil, fmt.Errorf("Mock server starting timed out after %s, output: %s", ReadyTimeout, lines)
-	case <-found:
+	err = iowait.WaitForRegexp(rc, ReadyExp, ReadyTimeout)
+	if err != nil {
+		return nil, err
 	}
 
 	//use docker host location to form url
