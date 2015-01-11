@@ -22,7 +22,7 @@ func TestServe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := server.NewServer(":9000", filepath.Join(wd, "..", ".dockpit", "examples"))
+	s := server.NewServer(":9000", filepath.Join(wd, "..", ".example", "examples"))
 
 	//run server but don't block
 	go s.Serve()

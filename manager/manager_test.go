@@ -42,7 +42,7 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	path := filepath.Join(wd, "..", ".dockpit", "examples")
+	path := filepath.Join(wd, "..", ".example", "examples")
 
 	//stop if we still got some mock servers running
 	m.Stop(path)

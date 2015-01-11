@@ -21,7 +21,7 @@ func main() {
 	}
 
 	//create the server
-	s := server.NewServer(Bind, filepath.Join(wd, ".dockpit", "examples"))
+	s := server.NewServer(Bind, filepath.Join(wd, ".example", "examples"))
 
 	//send relevant signals to server
 	signal.Notify(s.Reload, syscall.SIGHUP)

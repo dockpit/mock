@@ -10,7 +10,7 @@ import (
 	"github.com/zenazn/goji/bind"
 
 	"github.com/dockpit/lang"
-	"github.com/dockpit/pit/contract"
+	"github.com/dockpit/lang/manifest"
 )
 
 type Server struct {
@@ -43,14 +43,14 @@ func (s *Server) loadExamples() error {
 	cd, err := s.parser.Parse()
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("Failed to open .dockpit/examples in '%s', is this a Dockpit project?", s.dir)
+			return fmt.Errorf("Failed to open .example/examples in '%s', is this a Dockpit project?", s.dir)
 		}
 
 		return fmt.Errorf("Parsing error: %s", err)
 	}
 
 	//create contract from data
-	c, err := contract.NewContract(cd)
+	c, err := manifest.NewContract(cd)
 	if err != nil {
 		return fmt.Errorf("Failed to create contract from parsed data: %s", err)
 	}

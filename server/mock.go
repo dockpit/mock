@@ -11,7 +11,7 @@ import (
 	"github.com/zenazn/goji/web"
 
 	"github.com/dockpit/dirtar"
-	"github.com/dockpit/pit/contract"
+	"github.com/dockpit/lang/manifest"
 )
 
 type Recording struct {
@@ -22,13 +22,13 @@ type Recording struct {
 //
 // Represents a mocked contract
 type Mock struct {
-	contract contract.C
+	contract manifest.C
 	dir      string
 
 	Recordings map[string]map[string]*Recording
 }
 
-func NewMock(c contract.C, dir string) *Mock {
+func NewMock(c manifest.C, dir string) *Mock {
 	return &Mock{c, dir, make(map[string]map[string]*Recording)}
 }
 
