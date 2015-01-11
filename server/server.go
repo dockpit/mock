@@ -39,8 +39,8 @@ func NewServer(b, dir string) *Server {
 // the server mux
 func (s *Server) loadExamples() error {
 
-	//create contract data using the parser
-	cd, err := s.parser.Parse()
+	//create manifest data using the parser
+	md, err := s.parser.Parse()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("Failed to open .example/examples in '%s', is this a Dockpit project?", s.dir)
@@ -49,14 +49,14 @@ func (s *Server) loadExamples() error {
 		return fmt.Errorf("Parsing error: %s", err)
 	}
 
-	//create contract from data
-	c, err := manifest.NewContract(cd)
+	//create manifest from data
+	m, err := manifest.NewManifest(md)
 	if err != nil {
-		return fmt.Errorf("Failed to create contract from parsed data: %s", err)
+		return fmt.Errorf("Failed to create manifest from parsed data: %s", err)
 	}
 
-	//create mux from contract
-	mock := NewMock(c, s.dir)
+	//create mux from manifest
+	mock := NewMock(m, s.dir)
 	mux, err := mock.Mux()
 	if err != nil {
 		return err

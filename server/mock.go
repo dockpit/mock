@@ -20,16 +20,16 @@ type Recording struct {
 
 //
 //
-// Represents a mocked contract
+// Represents a mocked manifest
 type Mock struct {
-	contract manifest.C
+	manifest manifest.M
 	dir      string
 
 	Recordings map[string]map[string]*Recording
 }
 
-func NewMock(c manifest.C, dir string) *Mock {
-	return &Mock{c, dir, make(map[string]map[string]*Recording)}
+func NewMock(m manifest.M, dir string) *Mock {
+	return &Mock{m, dir, make(map[string]map[string]*Recording)}
 }
 
 //allow external programs to upload a new set of examples as a tar archive
@@ -104,11 +104,11 @@ func (m *Mock) ListRecordings(c web.C, w http.ResponseWriter, r *http.Request) {
 }
 
 // walk resources, actions and pairs to map all necessary states to
-// create a router that mocks the contract
+// create a router that mocks the manifest
 func (m *Mock) Mux() (*web.Mux, error) {
 	mux := web.New()
 
-	res, err := m.contract.Resources()
+	res, err := m.manifest.Resources()
 	if err != nil {
 		return mux, err
 	}
