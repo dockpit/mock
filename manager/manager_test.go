@@ -29,7 +29,7 @@ func gethostcert(t *testing.T) (string, string) {
 	return h, cert
 }
 
-func TestStart(t *testing.T) {
+func TestStartSwitch(t *testing.T) {
 	host, cert := gethostcert(t)
 
 	wd, err := os.Getwd()
@@ -55,7 +55,22 @@ func TestStart(t *testing.T) {
 
 	assert.Equal(t, true, strings.HasSuffix(mc.Endpoint, ":11000"), "mocked service should have port configured endpoint")
 
+	//unexpected case should return 400
 	resp, err := http.Get(fmt.Sprintf("%s/users", mc.Endpoint))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//mocks working?
+	assert.Equal(t, 400, resp.StatusCode)
+
+	//tell mock to expect the request
+	err = m.Expect("list all users", "11000")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err = http.Get(fmt.Sprintf("%s/users", mc.Endpoint))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,8 +28,14 @@ func TestServe(t *testing.T) {
 	go s.Serve()
 	defer func() { s.Stop <- os.Kill }()
 
+	//tell mock to expect a resource to be requested
+	resp, err := http.Get("http://localhost:9000/_expect?case=list+all+users")
+	if err != nil {
+		t.Error(err)
+	}
+
 	//call a mocked resource
-	resp, err := http.Get("http://localhost:9000/users")
+	resp, err = http.Get("http://localhost:9000/users")
 	if err != nil {
 		t.Error(err)
 	}
@@ -47,7 +53,7 @@ func TestServe(t *testing.T) {
 	assert.Equal(t, string(b), "[]")
 
 	//fetch recording
-	recresp, err := http.Get("http://localhost:9000/_recordings?path=%2Fusers&method=GET")
+	recresp, err := http.Get("http://localhost:9000/_recordings?case=list+all+users")
 	if err != nil {
 		t.Error(err)
 	}
@@ -63,7 +69,7 @@ func TestServe(t *testing.T) {
 	assert.Equal(t, string(b), "{\"count\":1}\n")
 
 	//Second recording
-	recresp, err = http.Get("http://localhost:9000/_recordings?path=%2Fusers&method=GET")
+	recresp, err = http.Get("http://localhost:9000/_recordings?case=list+all+users")
 	if err != nil {
 		t.Error(err)
 	}

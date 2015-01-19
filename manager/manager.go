@@ -72,6 +72,45 @@ func containerName(path string) (string, error) {
 	return fmt.Sprintf("pitmock_%s", hex.EncodeToString(hash.Sum(nil))), nil
 }
 
+// convert to an url
+func (m *Manager) toPortUrl(dhost string, port string) (*url.URL, error) {
+	hurl, err := url.Parse(m.host)
+	if err != nil {
+		return nil, err
+	}
+
+	hurl.Scheme = "http"
+	hurl.Host = strings.Replace(hurl.Host, ":2376", fmt.Sprintf(":%s", port), 1)
+
+	return hurl, nil
+}
+
+// Instruct a mock server to expect a certain request
+func (m *Manager) Expect(casename string, port string) error {
+
+	//use docker host location to form url
+	hurl, err := m.toPortUrl(m.host, port)
+	if err != nil {
+		return err
+	}
+
+	q := url.Values{}
+	q.Set("case", casename)
+
+	//send switch request
+	resp, err := http.Get(fmt.Sprintf("%s/_expect?%s", hurl.String(), q.Encode()))
+	if err != nil {
+		return err
+	}
+
+	//should return 200
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Failed to set mock's expectation for case '%s': %s", casename, resp.Status)
+	}
+
+	return nil
+}
+
 // start a mock container by using examples from the given directory
 //  @todo this method makes an awfull lot assumptions about the mocked service
 //  	- only one prot to expose
@@ -115,14 +154,10 @@ func (m *Manager) Start(dir string, port string) (*MockContainer, error) {
 	}
 
 	//use docker host location to form url
-	hurl, err := url.Parse(m.host)
+	hurl, err := m.toPortUrl(m.host, port)
 	if err != nil {
 		return nil, err
 	}
-
-	//replace docker port and scheme with the provided port
-	hurl.Scheme = "http"
-	hurl.Host = strings.Replace(hurl.Host, ":2376", fmt.Sprintf(":%s", port), 1)
 
 	//tar examples into memory
 	tar := bytes.NewBuffer(nil)
