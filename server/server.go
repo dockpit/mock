@@ -11,6 +11,7 @@ import (
 
 	"github.com/dockpit/lang"
 	"github.com/dockpit/lang/manifest"
+	"github.com/dockpit/lang/parser"
 )
 
 type Server struct {
@@ -20,9 +21,10 @@ type Server struct {
 
 	dir      string
 	listener net.Listener
-	parser   *lang.Parser
+	parser   parser.Parser
 }
 
+// @todo, lang.NewParser changed to markdown/file version
 func NewServer(b, dir string) *Server {
 	return &Server{
 		Reload: make(chan os.Signal),
@@ -31,7 +33,7 @@ func NewServer(b, dir string) *Server {
 
 		dir:      dir,
 		listener: bind.Socket(b),
-		parser:   lang.NewParser(dir),
+		parser:   lang.FileParser(dir),
 	}
 }
 
@@ -40,6 +42,7 @@ func NewServer(b, dir string) *Server {
 func (s *Server) loadExamples() error {
 
 	//create manifest data using the parser
+	//@todo, these errors are not reported in tests
 	md, err := s.parser.Parse()
 	if err != nil {
 		if os.IsNotExist(err) {

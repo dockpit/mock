@@ -1,1 +1,1 @@
-github.com/dockpit/pit-token GET /users
+github.com/dockpit/pit-token 'list all users'
