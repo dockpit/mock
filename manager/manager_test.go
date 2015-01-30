@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -48,9 +47,6 @@ func TestStartSwitch(t *testing.T) {
 	//stop if we still got some mock servers running
 	m.Stop(path)
 
-	<-time.After(time.Second)
-
-	// mc, err := m.Start(path, portb)
 	mc, err := m.Start(path, "11000")
 	if err != nil {
 		t.Fatal(err)

@@ -135,6 +135,31 @@ func (m *Manager) Start(dir string, port string) (*MockContainer, error) {
 		dockerclient.PortBinding{"0.0.0.0", port},
 	}
 
+	//see if our mock image is already pulled
+	imgs, err := m.client.ListImages()
+	if err != nil {
+		return nil, err
+	}
+
+	hasImg := false
+ImageLoop:
+	for _, img := range imgs {
+		for _, tag := range img.RepoTags {
+			if tag == ImageName {
+				hasImg = true
+				break ImageLoop
+			}
+		}
+	}
+
+	//if not pull it first
+	if !hasImg {
+		err = m.client.PullImage(ImageName, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	//create the container
 	id, err := m.client.CreateContainer(&dockerclient.ContainerConfig{Image: ImageName}, cname)
 	if err != nil {
