@@ -187,7 +187,7 @@ func (m *Mock) Mux() (*web.Mux, error) {
 						m.Expectations[r.Pattern()][req.Method] = expects[1:]
 
 						//let the pair handle it
-						expect.Pair.GenerateHandler().ServeHTTP(w, req)
+						expect.Pair.GenerateHandler().ServeHTTPC(ctx, w, req)
 
 						//Recordings met expecation
 						var rec *Recording

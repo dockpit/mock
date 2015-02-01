@@ -9,7 +9,6 @@ import (
 
 	"github.com/zenazn/goji/bind"
 
-	"github.com/dockpit/lang"
 	"github.com/dockpit/lang/manifest"
 	"github.com/dockpit/lang/parser"
 )
@@ -25,15 +24,16 @@ type Server struct {
 }
 
 // @todo, lang.NewParser changed to markdown/file version
-func NewServer(b, dir string) *Server {
+func NewServer(b, dir string, p parser.Parser) *Server {
+
 	return &Server{
 		Reload: make(chan os.Signal),
 		Stop:   make(chan os.Signal),
 		Errors: make(chan error),
 
-		dir:      dir,
 		listener: bind.Socket(b),
-		parser:   lang.FileParser(dir),
+		dir:      dir,
+		parser:   p,
 	}
 }
 
