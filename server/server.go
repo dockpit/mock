@@ -2,13 +2,16 @@ package server
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/zenazn/goji/bind"
 
+	"github.com/dockpit/lang"
 	"github.com/dockpit/lang/manifest"
 	"github.com/dockpit/lang/parser"
 )
@@ -24,7 +27,7 @@ type Server struct {
 }
 
 // @todo, lang.NewParser changed to markdown/file version
-func NewServer(b, dir string, p parser.Parser) *Server {
+func NewServer(b, dir string) *Server {
 
 	return &Server{
 		Reload: make(chan os.Signal),
@@ -33,13 +36,39 @@ func NewServer(b, dir string, p parser.Parser) *Server {
 
 		listener: bind.Socket(b),
 		dir:      dir,
-		parser:   p,
 	}
 }
 
 // read examples from the filesystem and (re)create the
 // the server mux
 func (s *Server) loadExamples() error {
+
+	//determine parser type again after upload
+	//@todo duplicate with pit/command/types.go
+	//get files in dir
+	fis, err := ioutil.ReadDir(s.dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("Failed to open examples in '%s', is this a Dockpit project?", s.dir)
+		}
+
+		return err
+	}
+
+	//any markdown files in path
+	isMarkdown := false
+	for _, fi := range fis {
+		if filepath.Ext(fi.Name()) == ".md" {
+			isMarkdown = true
+		}
+	}
+
+	//if so use markdown parser
+	if isMarkdown {
+		s.parser = lang.MarkdownParser(s.dir)
+	} else {
+		s.parser = lang.FileParser(s.dir)
+	}
 
 	//create manifest data using the parser
 	//@todo, these errors are not reported in tests

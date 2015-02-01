@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/dockpit/dirtar"
-	"github.com/dockpit/lang"
 	"github.com/dockpit/mock/server"
 )
 
@@ -24,9 +23,8 @@ func TestServe(t *testing.T) {
 	}
 
 	path := filepath.Join(wd, "..", ".example", "examples")
-	p := lang.FileParser(path)
 
-	s := server.NewServer(":9000", path, p)
+	s := server.NewServer(":9000", path)
 
 	//run server but don't block
 	go s.Serve()
@@ -115,8 +113,7 @@ func TestUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p := lang.FileParser(dir)
-	s := server.NewServer(":9000", dir, p)
+	s := server.NewServer(":9000", dir)
 
 	//run server but don't block
 	go s.Serve()
